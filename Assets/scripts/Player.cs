@@ -96,10 +96,13 @@ public class Player : MonoBehaviour
 
     // Launch projectile
     Projectile projectile = projectileObject.GetComponent<Projectile>();
-    projectile.Launch(launchDir, 10f);
+    projectile.Launch(launchDir, 10f); // adjust force if too slow or too fast
 
     animator.SetTrigger("Launch");
+
+    Debug.Log("Projectile launched in direction: " + launchDir);
 }
+
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("ground"))

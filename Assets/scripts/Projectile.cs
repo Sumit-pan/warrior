@@ -2,38 +2,44 @@ using UnityEngine;
 
 public class Projectile : MonoBehaviour
 {
-    public float lifetime = 2f;   // Time before the projectile disappears
-    public int damage = 25;       // How much damage it does
+    public float lifetime = 3f;
+    public float damage = 25f;
     private Rigidbody2D rb;
 
-    void Start()
+    void Awake()  // <-- use Awake, not Start
     {
         rb = GetComponent<Rigidbody2D>();
-        Destroy(gameObject, lifetime);
     }
 
     public void Launch(Vector2 direction, float force)
     {
+        if (rb == null)
+        {
+            Debug.LogError("Rigidbody2D missing on projectile!");
+            return;
+        }
+
         rb.velocity = direction * force;
+        Debug.Log("Projectile launched with velocity: " + rb.velocity);
+        Destroy(gameObject, lifetime);
     }
 
     void OnCollisionEnter2D(Collision2D collision)
     {
-        // Ignore collisions with the player
         if (collision.gameObject.CompareTag("Player"))
-            return;
+        {
+            Health target = collision.gameObject.GetComponent<Health>();
+            if (target != null)
+                target.TakeDamage(damage);
+        }
 
-        // Check if it hit an enemy (like the Bandit)
         if (collision.gameObject.CompareTag("Enemy"))
         {
             Health target = collision.gameObject.GetComponent<Health>();
             if (target != null)
-            {
                 target.TakeDamage(damage);
-            }
         }
 
-        // Destroy projectile after any valid hit
         Destroy(gameObject);
     }
 }
