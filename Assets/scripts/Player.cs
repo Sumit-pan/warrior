@@ -12,15 +12,46 @@ public class Player : MonoBehaviour
     private bool facingRight = true;
     public GameObject projectilePrefab;
     private Vector2 moveDirection;
-    public int jumpCount = 0;           
-    public int maxJump = 2;             
-  
+    public int jumpCount = 0;
+    public int maxJump = 2;
     [SerializeField] private bool isGrounded = true;
+
+    [Header("Health System")]
+    public HealthBar healthBarPrefab;   // assign in Inspector
+    private HealthBar healthBarInstance;
+    private Health health;
+
+    [Header("Respawn Settings")]
+    public Transform[] respawnPoints;     // assign spawn points in Inspector
+    public float respawnDelay = 3f;       // seconds before respawning
+
+    public int maxLives = 3;
+    private int currentLives;
+    private bool isDead = false;
+
+    private Collider2D col;
+
+
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
+        health = GetComponent<Health>();
+        col = GetComponent<Collider2D>();
+        currentLives = maxLives;
+
+        if (health != null && healthBarPrefab != null)
+        {
+            Vector3 offset = new Vector3(0, 2.5f, 0);
+            healthBarInstance = Instantiate(healthBarPrefab, transform.position + offset, Quaternion.identity);
+            healthBarInstance.Initialize(transform, offset);
+            health.SetHealthBar(healthBarInstance);
+        }
+        if (UIManager.Instance != null)
+    UIManager.Instance.UpdateLives(currentLives);
+
+
     }
 
     void Update()
@@ -60,11 +91,13 @@ public class Player : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             animator.SetTrigger("attack");
+            AudioManager.Instance?.PlaySFX(AudioManager.Instance.playerAttackClip);
         }
         if (Input.GetMouseButtonDown(1))
         {
             animator.SetTrigger("Launch");
             Launch();
+            AudioManager.Instance?.PlaySFX(AudioManager.Instance.playerAttackClip);
         }
     }
 
@@ -80,28 +113,17 @@ public class Player : MonoBehaviour
         jumpCount++;
     }
 
-   void Launch()
-{
-    // Decide direction based on facing
-    Vector2 launchDir = facingRight ? Vector2.right : Vector2.left;
-
-    // Offset spawn position slightly in front of player
-    Vector2 spawnOffset = new Vector2(facingRight ? 0.6f : -0.6f, 0.2f);
-
-    // Spawn projectile
-    GameObject projectileObject = Instantiate(projectilePrefab, rb.position + spawnOffset, Quaternion.identity);
-
-    // Ignore collision between player and projectile
-    Physics2D.IgnoreCollision(projectileObject.GetComponent<Collider2D>(), GetComponent<Collider2D>());
-
-    // Launch projectile
-    Projectile projectile = projectileObject.GetComponent<Projectile>();
-    projectile.Launch(launchDir, 10f); // adjust force if too slow or too fast
-
-    animator.SetTrigger("Launch");
-
-    Debug.Log("Projectile launched in direction: " + launchDir);
-}
+    void Launch()
+    {
+        Vector2 launchDir = facingRight ? Vector2.right : Vector2.left;
+        Vector2 spawnOffset = new Vector2(facingRight ? 0.6f : -0.6f, 0.2f);
+        GameObject projectileObject = Instantiate(projectilePrefab, rb.position + spawnOffset, Quaternion.identity);
+        Physics2D.IgnoreCollision(projectileObject.GetComponent<Collider2D>(), GetComponent<Collider2D>());
+        Projectile projectile = projectileObject.GetComponent<Projectile>();
+        projectile.Launch(launchDir, 10f);
+        animator.SetTrigger("Launch");
+        Debug.Log("Projectile launched in direction: " + launchDir);
+    }
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
@@ -119,4 +141,94 @@ public class Player : MonoBehaviour
             isGrounded = false;
         }
     }
+
+    public void Die()
+    {
+        if (isDead) return;
+        isDead = true;
+        Debug.Log("Player died!");
+        // Disable controls
+        // Play death animation
+        if (animator != null)
+            animator.SetTrigger("Death");
+
+        // Freeze physics and disable controls
+        if (rb != null)
+        {
+            rb.velocity = Vector2.zero;
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.gravityScale = 0;
+        }
+
+        if (col != null)
+            col.enabled = false;
+
+        this.enabled = false;
+
+        currentLives--;
+UIManager.Instance.UpdateLives(currentLives);
+
+        Debug.Log("Lives left: " + currentLives);
+
+        if (currentLives > 0)
+            StartCoroutine(RespawnCoroutine());
+        else
+            StartCoroutine(GameOverCoroutine());
+    }
+
+    private IEnumerator RespawnCoroutine()
+    {
+        yield return new WaitForSeconds(respawnDelay);
+
+        // Choose respawn point
+        if (respawnPoints != null && respawnPoints.Length > 0)
+        {
+            int index = Random.Range(0, respawnPoints.Length);
+            transform.position = respawnPoints[index].position;
+        }
+        else
+        {
+            transform.position = Vector3.zero;
+        }
+
+        // Reset health
+        if (health != null)
+            health.ResetHealth();
+
+        // Restore physics and controls
+        if (rb != null)
+        {
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.gravityScale = 1;
+        }
+
+        if (col != null)
+            col.enabled = true;
+
+        this.enabled = true;
+        isDead = false;
+
+        // Reset death trigger if needed
+        if (animator != null)
+            animator.ResetTrigger("die");
+    }
+
+    private IEnumerator GameOverCoroutine()
+    {
+        yield return new WaitForSeconds(2f); // short delay after final death
+
+        Debug.Log("GAME OVER!");
+
+        // Freeze everything
+        if (rb != null)
+        {
+            rb.velocity = Vector2.zero;
+            rb.bodyType = RigidbodyType2D.Kinematic;
+        }
+
+        // Play Game Over animation or show UI here
+        if (animator != null)
+            animator.SetTrigger("GameOver");
+    }
+
 }

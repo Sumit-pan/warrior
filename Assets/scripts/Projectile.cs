@@ -6,7 +6,7 @@ public class Projectile : MonoBehaviour
     public float damage = 25f;
     private Rigidbody2D rb;
 
-    void Awake()  // <-- use Awake, not Start
+    void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
     }
@@ -18,27 +18,15 @@ public class Projectile : MonoBehaviour
             Debug.LogError("Rigidbody2D missing on projectile!");
             return;
         }
-
         rb.velocity = direction * force;
-        Debug.Log("Projectile launched with velocity: " + rb.velocity);
         Destroy(gameObject, lifetime);
     }
 
     void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.CompareTag("Player"))
-        {
-            Health target = collision.gameObject.GetComponent<Health>();
-            if (target != null)
-                target.TakeDamage(damage);
-        }
-
-        if (collision.gameObject.CompareTag("Enemy"))
-        {
-            Health target = collision.gameObject.GetComponent<Health>();
-            if (target != null)
-                target.TakeDamage(damage);
-        }
+        Health target = collision.gameObject.GetComponent<Health>();
+        if (target != null)
+            target.TakeDamage(damage);
 
         Destroy(gameObject);
     }
